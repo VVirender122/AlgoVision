@@ -211,8 +211,107 @@ Testing should cover:
 
 The engine and algorithms should be testable without rendering React.
 
-## 12. Immediate Next Step
+## 12. Initial Implementation Plan
 
 Begin with `src/engine/events/`.
 
 Define the event model and TypeScript contracts before implementing the execution engine or individual algorithms.
+
+## Execution Engine Architecture
+
+### 13. Architecture Style
+
+AlgoVision uses a **Layered Hybrid Event Architecture**.
+
+The architecture combines:
+- Shared event metadata for all algorithms.
+- Common lifecycle events.
+- Algorithm-specific event types and payloads.
+- A generic execution engine that does not depend on individual algorithm implementations.
+
+### 14. Event Structure
+
+Every event shares common metadata:
+
+- `id`: Unique event identifier within an execution.
+- `sequence`: Global event order, starting at 0.
+- `type`: Event type.
+- `algorithmId`: Identifies the algorithm producing the event.
+- `invocationId`: Identifies the specific algorithm invocation.
+- `parentInvocationId`: Optional identifier linking a nested invocation to its parent.
+
+Algorithm-specific events extend this common structure with their own payloads.
+
+### 15. Execution Context and Trace
+
+A single execution uses a shared execution context.
+
+Its responsibilities are:
+
+- Maintain execution-wide metadata.
+- Coordinate nested algorithm invocations.
+- Provide a shared event-recording mechanism.
+- Preserve one global event sequence.
+
+Nested algorithms contribute events to the same trace by default. Independent executions may produce separate traces.
+
+### 16. Trace Lifecycle
+
+The trace follows this lifecycle:
+
+1. An execution context is created.
+2. A mutable trace builder collects events.
+3. Events are recorded in global sequence order.
+4. Execution finishes or fails.
+5. The builder produces a completed, immutable execution trace.
+
+The playback system reads the completed trace without modifying it.
+
+### 17. Event Semantics and Playback
+
+Events represent meaningful algorithm operations rather than individual source-code lines.
+
+Event payloads must contain enough information to reconstruct execution state and support forward and backward playback.
+
+For example, a `SWAP` event records the indices and values immediately before the swap.
+
+Initially, state will be reconstructed from the initial input and recorded events. Full snapshots and checkpoint optimizations are deferred.
+
+### 18. Determinism
+
+Given the same input and algorithm configuration, an algorithm should produce the same logical execution trace.
+
+Playback uses recorded events rather than rerunning the algorithm.
+
+Randomized algorithms must eventually record or control their random seed.
+
+### 19. Error Handling
+
+The initial lifecycle event types are:
+
+- `START`
+- `COMPLETE`
+- `ERROR`
+
+Cancellation and more detailed error metadata can be introduced when required by the playback implementation.
+
+### 20. Design Constraints
+
+- The execution engine must remain independent of React and browser APIs.
+- Algorithm implementations must not depend on UI components.
+- Visualizers and learning modules interpret events; they do not execute algorithms.
+- Completed traces are immutable by design.
+- TypeScript `readonly` provides compile-time protection; runtime freezing is not initially required.
+
+### 21. Deferred Optimizations
+
+The following are intentionally postponed:
+
+- Runtime object freezing.
+- Periodic state snapshots and checkpoint optimization.
+- Event compression and history pruning.
+- Parallel or distributed execution.
+- Plugin and algorithm registries.
+- Advanced profiling and memory optimization.
+
+These should be introduced only when actual requirements justify them.
